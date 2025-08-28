@@ -1,0 +1,347 @@
+<!-- hello noobs, this shit was ez to make and if u want to u can use my code to remake ur own :) too me around 2 hrs to make. have fun you stinky skids -->
+<!-- also this was heavily inspired by Rebane's Discord Colored Text Generator go check their project out at https://rebane2001.com/discord-colored-text-generator/ -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MadCritical's Discord ANSI Color Generator</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#071026;color:#e6eef6;display:flex;justify-content:center;padding:28px}
+    .wrap{width:1000px;background:#0b1220;padding:24px;border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 16px 0;font-size:22px;text-align:center}
+    label{display:block;margin-bottom:6px;font-weight:bold}
+    .editor{min-height:250px;padding:12px;border-radius:8px;border:1px dashed rgba(255,255,255,0.04);background:#031024;outline:none;font-size:14px;line-height:1.5;white-space:pre-wrap;margin-bottom:12px;box-sizing:border-box}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    button{padding:8px 12px;border-radius:8px;border:none;cursor:pointer;background:#0c1626;color:inherit;font-size:13px;transition:0.2s}
+    button:hover{background:#172033}
+    .swatch{width:20px;height:16px;border-radius:4px;border:1px solid rgba(0,0,0,0.4);display:inline-block;vertical-align:middle;margin-right:6px}
+    .ansi-bold{font-weight:bold;}
+    .ansi-underline{text-decoration:underline;}
+    #resetAllBtn.warn{background:#ED4245;color:#fff;}
+    .actions-bar{display:flex;gap:10px;align-items:center;margin-top:16px;}
+    .actions-cat{margin-top:20px;}
+    #tutorialModal {
+      display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;
+      background:rgba(0,0,0,0.6);z-index:999;align-items:center;justify-content:center;
+    }
+    #tutorialContent {
+      background:#182030;padding:32px 24px;border-radius:10px;max-width:500px;
+      color:#e6eef6;box-shadow:0 6px 24px rgba(0,0,0,0.5);text-align:left;
+      font-size:15px;line-height:1.6;position:relative;
+    }
+    #closeTutorial {
+      position:absolute;top:12px;right:12px;font-size:20px;background:none;border:none;color:#e6eef6;cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>MadCritical's Discord ANSI Color Generator</h1>
+    <button id="tutorialBtn" style="float:right;margin-top:-32px;margin-right:8px;">Tutorial</button>
+    <label>Editable text (select text then apply foreground/background/style):</label>
+    <div id="editor" class="editor" contenteditable="true">Type your text here...</div>
+
+    <label style="margin-top:12px">Foreground Color Presets:</label>
+    <div class="toolbar" id="fg-presets"></div>
+
+    <label style="margin-top:12px">Background Color Presets:</label>
+    <div class="toolbar" id="bg-presets"></div>
+
+    <label style="margin-top:12px">Text Style:</label>
+    <div class="toolbar" id="styles">
+      <button id="boldBtn">Bold</button>
+      <button id="underlineBtn">Underline</button>
+      <button id="resetStyleBtn">Reset Selected Style</button>
+    </div>
+
+    <div class="actions-cat">
+      <label>Actions:</label>
+      <div class="actions-bar">
+        <button id="copyText">Copy ANSI</button>
+        <button id="resetAllBtn">Reset All</button>
+        <span id="resetAllWarning" style="color:#ED4245;display:none;font-size:13px;">Click again to confirm reset!</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="tutorialModal">
+    <div id="tutorialContent">
+      <button id="closeTutorial" title="Close">&times;</button>
+      <h2>How to use the Discord ANSI Color Generator</h2>
+      <ul>
+        <li><strong>Editable Text:</strong> Type or paste your message in the main text area. Select the part of the text you wish to style.</li>
+        <li><strong>Foreground Color Presets:</strong> Click a color to apply it to your selected text as the foreground (text color). "Reset Selected Foreground" removes the color from your selection.</li>
+        <li><strong>Background Color Presets:</strong> Click a color to apply it to your selected text as the background. "Reset Selected Background" removes the background color from your selection.</li>
+        <li><strong>Text Style:</strong> Use "Bold" or "Underline" to style selected text. "Reset Selected Style" removes bold and underline.</li>
+        <li><strong>Actions:</strong> 
+          <ul>
+            <li><strong>Copy ANSI:</strong> Copies the styled message as Discord-compatible ANSI code. Paste it into Discord (desktop/web) to see colors and styles.</li>
+            <li><strong>Reset All:</strong> Removes <u>all</u> formatting (colors and styles) in the entire text, but does not delete your text. Requires double-click for confirmation.</li>
+          </ul>
+        </li>
+        <li><strong>Tip:</strong> You can combine foreground, background, and styles for creative effects!</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const ESC = '\x1b';
+    const FG_COLORS = [
+      {code:30,hex:'#4f545c',name:'Dark Gray'},
+      {code:31,hex:'#dc322f',name:'Red'},
+      {code:32,hex:'#859900',name:'Green'},
+      {code:33,hex:'#b58900',name:'Yellow'},
+      {code:34,hex:'#268bd2',name:'Blue'},
+      {code:35,hex:'#d33682',name:'Magenta'},
+      {code:36,hex:'#2aa198',name:'Cyan'},
+      {code:37,hex:'#ffffff',name:'White'}
+    ];
+    const BG_COLORS = [
+      {code:40,hex:'#002b36',name:'Dark Blue'},
+      {code:41,hex:'#cb4b16',name:'Rust Brown'},
+      {code:42,hex:'#586e75',name:'Gray'},
+      {code:43,hex:'#657b83',name:'Light Gray'},
+      {code:44,hex:'#839496',name:'Silver'},
+      {code:45,hex:'#6c71c4',name:'Blurple'},
+      {code:46,hex:'#93a1a1',name:'Light Cyan'},
+      {code:47,hex:'#fdf6e3',name:'Cream White'}
+    ];
+
+    const fgPresetsDiv = document.getElementById('fg-presets');
+    FG_COLORS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.innerHTML = `<span class='swatch' style='background:${c.hex}'></span>${c.name}`;
+      btn.onclick = () => applyStyleToSelection({fg: c.code, fgHex: c.hex});
+      fgPresetsDiv.appendChild(btn);
+    });
+    const resetFgBtn = document.createElement('button');
+    resetFgBtn.textContent = "Reset Selected Foreground";
+    resetFgBtn.onclick = () => resetColorSelection();
+    fgPresetsDiv.appendChild(resetFgBtn);
+
+    const bgPresetsDiv = document.getElementById('bg-presets');
+    BG_COLORS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.innerHTML = `<span class='swatch' style='background:${c.hex}'></span>${c.name}`;
+      btn.onclick = () => applyStyleToSelection({bg: c.code, bgHex: c.hex});
+      bgPresetsDiv.appendChild(btn);
+    });
+    const resetBgBtn = document.createElement('button');
+    resetBgBtn.textContent = "Reset Selected Background";
+    resetBgBtn.onclick = () => resetBgSelection();
+    bgPresetsDiv.appendChild(resetBgBtn);
+
+    document.getElementById('boldBtn').onclick = () => applyStyleToSelection({bold: true});
+    document.getElementById('underlineBtn').onclick = () => applyStyleToSelection({underline: true});
+    document.getElementById('resetStyleBtn').onclick = () => resetStyleSelection();
+
+    function applyStyleToSelection({fg, fgHex, bg, bgHex, bold, underline}) {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      if (range.collapsed) return;
+      const ed = document.getElementById('editor');
+      if (!ed.contains(range.commonAncestorContainer)) return;
+
+      const startContainer = range.startContainer;
+      const endContainer = range.endContainer;
+      if (startContainer.nodeType === 3 && range.startOffset > 0) {
+        startContainer.splitText(range.startOffset);
+      }
+      if (endContainer.nodeType === 3 && range.endOffset < endContainer.length) {
+        endContainer.splitText(range.endOffset);
+      }
+
+      const frag = range.extractContents();
+      const span = document.createElement('span');
+      if (fg && fgHex) {
+        span.style.color = fgHex;
+        span.dataset.fg = fg;
+      }
+      if (bg && bgHex) {
+        span.style.backgroundColor = bgHex;
+        span.dataset.bg = bg;
+      }
+      if (bold) {
+        span.classList.add('ansi-bold');
+        span.dataset.bold = "1";
+      }
+      if (underline) {
+        span.classList.add('ansi-underline');
+        span.dataset.underline = "4";
+      }
+      span.appendChild(frag);
+
+      range.insertNode(span);
+      sel.removeAllRanges();
+      ed.normalize();
+    }
+
+    function resetStyleSelection() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      if (range.collapsed) return;
+      const ed = document.getElementById('editor');
+      if (!ed.contains(range.commonAncestorContainer)) return;
+
+      const frag = range.extractContents();
+      const tmpDiv = document.createElement('div');
+      tmpDiv.appendChild(frag);
+      function unwrapAll(node) {
+        const fragment = document.createDocumentFragment();
+        for (const child of Array.from(node.childNodes)) {
+          if (child.nodeType === 3 || child.nodeName === "BR") {
+            fragment.appendChild(child.cloneNode(true));
+          } else if (child.nodeType === 1) {
+            fragment.appendChild(unwrapAll(child));
+          }
+        }
+        return fragment;
+      }
+      const cleanFrag = unwrapAll(tmpDiv);
+      range.insertNode(cleanFrag);
+      sel.removeAllRanges();
+      ed.normalize();
+    }
+
+    function resetColorSelection() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      if (range.collapsed) return;
+      const ed = document.getElementById('editor');
+      if (!ed.contains(range.commonAncestorContainer)) return;
+
+      const frag = range.extractContents();
+      function removeColor(node) {
+        if (node.nodeType === 1) {
+          node.style.color = '';
+          if (node.dataset) delete node.dataset.fg;
+          Array.from(node.childNodes).forEach(removeColor);
+        }
+      }
+      Array.from(frag.childNodes).forEach(removeColor);
+
+      range.insertNode(frag);
+      sel.removeAllRanges();
+      ed.normalize();
+    }
+
+    function resetBgSelection() {
+      const sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      const range = sel.getRangeAt(0);
+      if (range.collapsed) return;
+      const ed = document.getElementById('editor');
+      if (!ed.contains(range.commonAncestorContainer)) return;
+
+      const frag = range.extractContents();
+      function removeBg(node) {
+        if (node.nodeType === 1) {
+          node.style.backgroundColor = '';
+          if (node.dataset) delete node.dataset.bg;
+          Array.from(node.childNodes).forEach(removeBg);
+        }
+      }
+      Array.from(frag.childNodes).forEach(removeBg);
+
+      range.insertNode(frag);
+      sel.removeAllRanges();
+      ed.normalize();
+    }
+
+    let resetAllReady = false;
+    const resetAllBtn = document.getElementById('resetAllBtn');
+    const resetAllWarning = document.getElementById('resetAllWarning');
+    resetAllBtn.onclick = function() {
+      if (!resetAllReady) {
+        resetAllWarning.style.display = "inline";
+        resetAllBtn.classList.add('warn');
+        resetAllReady = true;
+        setTimeout(() => {
+          resetAllReady = false;
+          resetAllWarning.style.display = "none";
+          resetAllBtn.classList.remove('warn');
+        }, 3000);
+      } else {
+        resetAllWarning.style.display = "none";
+        resetAllBtn.classList.remove('warn');
+        resetAllReady = false;
+        resetAllStyles();
+      }
+    };
+
+    function resetAllStyles() {
+      const editor = document.getElementById('editor');
+      function unwrapAll(node) {
+        const fragment = document.createDocumentFragment();
+        for (const child of Array.from(node.childNodes)) {
+          if (child.nodeType === 3 || child.nodeName === "BR") {
+            fragment.appendChild(child.cloneNode(true));
+          } else if (child.nodeType === 1) {
+            fragment.appendChild(unwrapAll(child));
+          }
+        }
+        return fragment;
+      }
+      const cleanFrag = unwrapAll(editor);
+      editor.innerHTML = "";
+      editor.appendChild(cleanFrag);
+    }
+
+    function nodesToANSI(nodes, states = [{fg: undefined, bg: undefined, st: undefined}]) {
+      let text = "";
+      for (const node of nodes) {
+        if (node.nodeType === 3) {
+          text += node.textContent;
+          continue;
+        }
+        if (node.nodeName === "BR") {
+          text += "\n";
+          continue;
+        }
+        let codes = [];
+        let newState = {...states.at(-1)};
+        if (node.dataset && node.dataset.bold) {
+          codes.push(node.dataset.bold);
+          newState.st = node.dataset.bold;
+        }
+        if (node.dataset && node.dataset.underline) {
+          codes.push(node.dataset.underline);
+          newState.st = node.dataset.underline;
+        }
+        if (node.dataset && node.dataset.fg) {
+          codes.push(node.dataset.fg);
+          newState.fg = node.dataset.fg;
+        }
+        if (node.dataset && node.dataset.bg) {
+          codes.push(node.dataset.bg);
+          newState.bg = node.dataset.bg;
+        }
+        if (codes.length) text += ESC + "[" + codes.join(";") + "m";
+        text += nodesToANSI(node.childNodes, [...states, newState]);
+        if (codes.length) text += ESC + "[0m";
+      }
+      return text;
+    }
+
+    document.getElementById('copyText').onclick = async () => {
+      const editor = document.getElementById('editor');
+      const ansi = '```ansi\n'+nodesToANSI(editor.childNodes)+'\n```';
+      await navigator.clipboard.writeText(ansi);
+      alert('Copied ANSI text to clipboard! Paste into Discord desktop/web.');
+    };
+
+    const tutorialBtn = document.getElementById('tutorialBtn');
+    const tutorialModal = document.getElementById('tutorialModal');
+    const closeTutorial = document.getElementById('closeTutorial');
+    tutorialBtn.onclick = () => { tutorialModal.style.display = "flex"; };
+    closeTutorial.onclick = () => { tutorialModal.style.display = "none"; };
+    tutorialModal.onclick = (e) => {
+      if (e.target === tutorialModal) tutorialModal.style.display = "none";
+    };
+  </script>
+</body>
+</html>
