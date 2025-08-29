@@ -1,5 +1,4 @@
-<!-- hello noobs, this shit was ez to make and if u want to u can use my code to remake ur own :) too me around 2 hrs to make. have fun you stinky skids -->
-<!-- also this was heavily inspired by Rebane's Discord Colored Text Generator go check their project out at https://rebane2001.com/discord-colored-text-generator/ -->
+<!-- this was heavily inspired by Rebane's Discord Colored Text Generator go check their project out at https://rebane2001.com/discord-colored-text-generator/ -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -58,11 +57,86 @@
     <div class="actions-cat">
       <label>Actions:</label>
       <div class="actions-bar">
+        <button id="undoBtn">Undo</button>
+        <button id="redoBtn">Redo</button>
         <button id="copyText">Copy ANSI</button>
         <button id="resetAllBtn">Reset All</button>
         <span id="resetAllWarning" style="color:#ED4245;display:none;font-size:13px;">Click again to confirm reset!</span>
       </div>
     </div>
+  <script>
+
+    const editor = document.getElementById('editor');
+    let undoStack = [];
+    let redoStack = [];
+    let isRestoring = false;
+    let lastState = editor.innerHTML;
+
+    function saveState() {
+      if (isRestoring) return;
+      const current = editor.innerHTML;
+      if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== current) {
+        undoStack.push(current);
+        if (undoStack.length > 100) undoStack.shift();
+        redoStack = [];
+      }
+      lastState = current;
+    }
+
+    editor.addEventListener('input', saveState);
+    editor.addEventListener('paste', saveState);
+
+    function wrapWithSaveState(fn) {
+      return function(...args) {
+        fn.apply(this, args);
+        saveState();
+      };
+    }
+
+    [
+      'applyStyleToSelection',
+      'resetStyleSelection',
+      'resetColorSelection',
+      'resetBgSelection',
+      'resetAllStyles'
+    ].forEach(fnName => {
+      if (typeof window[fnName] === 'function') {
+        window[fnName] = wrapWithSaveState(window[fnName]);
+      }
+    });
+
+    editor.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+        e.preventDefault();
+        redo();
+      }
+    });
+
+    function undo() {
+      if (undoStack.length <= 1) return;
+      redoStack.push(undoStack.pop());
+      isRestoring = true;
+      editor.innerHTML = undoStack[undoStack.length - 1];
+      isRestoring = false;
+    }
+
+    function redo() {
+      if (redoStack.length === 0) return;
+      const state = redoStack.pop();
+      undoStack.push(state);
+      isRestoring = true;
+      editor.innerHTML = state;
+      isRestoring = false;
+    }
+
+    document.getElementById('undoBtn').onclick = undo;
+    document.getElementById('redoBtn').onclick = redo;
+
+    saveState();
+  </script>
   </div>
 
   <div id="tutorialModal">
@@ -76,11 +150,18 @@
         <li><strong>Text Style:</strong> Use "Bold" or "Underline" to style selected text. "Reset Selected Style" removes bold and underline.</li>
         <li><strong>Actions:</strong> 
           <ul>
+            <li><strong>Undo/Redo:</strong> Use the Undo and Redo buttons (or Ctrl+Z and Ctrl+Y) to step backward and forward through your changes.</li>
             <li><strong>Copy ANSI:</strong> Copies the styled message as Discord-compatible ANSI code. Paste it into Discord (desktop/web) to see colors and styles.</li>
             <li><strong>Reset All:</strong> Removes <u>all</u> formatting (colors and styles) in the entire text, but does not delete your text. Requires double-click for confirmation.</li>
           </ul>
         </li>
-        <li><strong>Tip:</strong> You can combine foreground, background, and styles for creative effects!</li>
+        <li><strong>Tips:</strong>
+          <ul>
+            <li>You can combine foreground, background, and styles for creative effects!</li>
+            <li>Press Enter for new lines - they'll be preserved when pasting into Discord.</li>
+            <li>Use Ctrl+Z to undo your last change or Ctrl+Y to redo.</li>
+          </ul>
+        </li>
       </ul>
     </div>
   </div>
@@ -298,8 +379,20 @@
           text += node.textContent;
           continue;
         }
-        if (node.nodeName === "BR") {
-          text += "\n";
+
+        if (node.nodeName === "BR" || ["DIV", "P"].includes(node.nodeName)) {
+
+          if (text && text[text.length - 1] !== "\n") {
+            text += "\n";
+          }
+
+          if (node.nodeName !== "BR") {
+            text += nodesToANSI(node.childNodes, states);
+
+            if (text && text[text.length - 1] !== "\n") {
+              text += "\n";
+            }
+          }
           continue;
         }
         let codes = [];
@@ -342,6 +435,80 @@
     tutorialModal.onclick = (e) => {
       if (e.target === tutorialModal) tutorialModal.style.display = "none";
     };
+
+    (function() {
+      const editor = document.getElementById('editor');
+      let undoStack = [];
+      let redoStack = [];
+      let isRestoring = false;
+      let lastState = editor.innerHTML;
+
+      function saveState() {
+        if (isRestoring) return;
+        const current = editor.innerHTML;
+        if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== current) {
+          undoStack.push(current);
+          if (undoStack.length > 100) undoStack.shift();
+          redoStack = [];
+        }
+        lastState = current;
+      }
+
+      editor.addEventListener('input', saveState);
+      editor.addEventListener('paste', saveState);
+
+      function wrapWithSaveState(fn) {
+        return function(...args) {
+          fn.apply(this, args);
+          saveState();
+        };
+      }
+
+      [
+        'applyStyleToSelection',
+        'resetStyleSelection',
+        'resetColorSelection',
+        'resetBgSelection',
+        'resetAllStyles'
+      ].forEach(fnName => {
+        if (typeof window[fnName] === 'function') {
+          window[fnName] = wrapWithSaveState(window[fnName]);
+        }
+      });
+
+      editor.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+          e.preventDefault();
+          undo();
+        } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+          e.preventDefault();
+          redo();
+        }
+      });
+
+      function undo() {
+        if (undoStack.length <= 1) return;
+        redoStack.push(undoStack.pop());
+        isRestoring = true;
+        editor.innerHTML = undoStack[undoStack.length - 1];
+        isRestoring = false;
+      }
+
+      function redo() {
+        if (redoStack.length === 0) return;
+        const state = redoStack.pop();
+        undoStack.push(state);
+        isRestoring = true;
+        editor.innerHTML = state;
+        isRestoring = false;
+      }
+
+      document.getElementById('undoBtn').onclick = undo;
+      document.getElementById('redoBtn').onclick = redo;
+
+      saveState();
+    })();
+
   </script>
 </body>
 </html>
